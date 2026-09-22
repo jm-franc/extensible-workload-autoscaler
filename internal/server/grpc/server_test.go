@@ -1771,3 +1771,179 @@ func checkCM(t *testing.T, got *pb.ControlMetrics, wantVals map[string]float64, 
 		}
 	}
 }
+
+// TestRecommenderOwnedMetricsGRPC validates the lifecycle of a metric owned by
+// a recommender, end to end.
+// Scenario: a "vpa" recommender registers its own "cpu" metric on a policy that
+// already collects a policy-wide "cpu".
+// Steps:
+//  1. Create the policy with both a policy-wide and a recommender-owned metric.
+//  2. Ingest samples for both, the owned ones stamped with their owner.
+//  3. Verify GetControlMetrics reports the policy-wide value by default, and the
+//     owned value when scoped to the recommender.
+func TestRecommenderOwnedMetricsGRPC(t *testing.T) {
+	start := time.Unix(1000, 0)
+	clk := &clock.FakeClock{CurrentTime: start}
+	memStore, client, cleanup := setupGRPCServer(t, clk)
+	defer cleanup()
+	ctx := context.Background()
+
+	id := &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"}
+	_, err := client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{
+		Policy: &pb.Policy{
+			Id: id,
+			Metrics: []*pb.MetricDefinition{
+				{Name: "cpu", Gauge: &pb.Gauge{Aggregation: "Avg"}},
+			},
+			RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+				"vpa": {Definitions: []*pb.MetricDefinition{
+					{Name: "cpu", RecommenderName: "vpa", Gauge: &pb.Gauge{Aggregation: "Max"}},
+				}},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("UpdatePolicy failed: %v", err)
+	}
+
+	_, err = client.UpdateWorkload(ctx, &pb.UpdateWorkloadRequest{
+		Id: id,
+		Workload: &pb.Workload{Pods: []*pb.PodState{
+			{Name: "p1", IsReady: true},
+			{Name: "p2", IsReady: true},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("UpdateWorkload failed: %v", err)
+	}
+
+	_, err = client.IngestMetrics(ctx, &pb.IngestMetricsRequest{
+		ClusterName: "default",
+		Timestamp:   start.Unix(),
+		Policies: []*pb.PolicyBatch{{
+			Namespace: "prod", Name: "web",
+			Batches: []*pb.MetricBatch{{
+				PodName: "p1",
+				Samples: []*pb.MetricSample{
+					{Name: "cpu", Value: 2, Timestamp: start.Unix()},
+					{Name: "cpu", RecommenderName: "vpa", Value: 20, Timestamp: start.Unix()},
+				},
+			}, {
+				PodName: "p2",
+				Samples: []*pb.MetricSample{
+					{Name: "cpu", Value: 4, Timestamp: start.Unix()},
+					{Name: "cpu", RecommenderName: "vpa", Value: 40, Timestamp: start.Unix()},
+				},
+			}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("IngestMetrics failed: %v", err)
+	}
+
+	memStore.CalculateAll()
+
+	// Policy-wide scope: Avg(2, 4).
+	cm, err := client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{Id: id})
+	if err != nil {
+		t.Fatalf("GetControlMetrics failed: %v", err)
+	}
+	checkCM(t, cm, map[string]float64{"cpu": 3}, start.Unix())
+
+	// Recommender scope: only its own metric, with its own aggregation Max(20, 40).
+	cm, err = client.GetControlMetrics(ctx, &pb.GetControlMetricsRequest{
+		Id:              id,
+		RecommenderName: "vpa",
+	})
+	if err != nil {
+		t.Fatalf("GetControlMetrics(vpa) failed: %v", err)
+	}
+	checkCM(t, cm, map[string]float64{"cpu": 40}, start.Unix())
+}
+
+// TestRecommenderMetricsValidationGRPC checks that owned metric definitions have
+// to be consistent with the recommender they are registered under.
+func TestRecommenderMetricsValidationGRPC(t *testing.T) {
+	start := time.Unix(1000, 0)
+	clk := &clock.FakeClock{CurrentTime: start}
+	_, client, cleanup := setupGRPCServer(t, clk)
+	defer cleanup()
+	ctx := context.Background()
+
+	id := &pb.PolicyId{ClusterName: "default", Namespace: "prod", Name: "web"}
+
+	tests := []struct {
+		name     string
+		policy   *pb.Policy
+		wantCode codes.Code
+	}{
+		{
+			name: "Owned metric with a mismatched owner",
+			policy: &pb.Policy{
+				Id: id,
+				RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+					"vpa": {Definitions: []*pb.MetricDefinition{
+						{Name: "cpu", RecommenderName: "hpa", Gauge: &pb.Gauge{}},
+					}},
+				},
+			},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name: "Owned metric without an owner",
+			policy: &pb.Policy{
+				Id: id,
+				RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+					"vpa": {Definitions: []*pb.MetricDefinition{
+						{Name: "cpu", Gauge: &pb.Gauge{}},
+					}},
+				},
+			},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name: "Owned metric without an intent",
+			policy: &pb.Policy{
+				Id: id,
+				RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+					"vpa": {Definitions: []*pb.MetricDefinition{
+						{Name: "cpu", RecommenderName: "vpa"},
+					}},
+				},
+			},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name: "Policy-wide metric claiming an owner",
+			policy: &pb.Policy{
+				Id: id,
+				Metrics: []*pb.MetricDefinition{
+					{Name: "cpu", RecommenderName: "vpa", Gauge: &pb.Gauge{}},
+				},
+			},
+			wantCode: codes.InvalidArgument,
+		},
+		{
+			name: "Valid owned metric",
+			policy: &pb.Policy{
+				Id: id,
+				RecommenderMetrics: map[string]*pb.MetricDefinitionList{
+					"vpa": {Definitions: []*pb.MetricDefinition{
+						{Name: "cpu", RecommenderName: "vpa", Gauge: &pb.Gauge{}},
+					}},
+				},
+			},
+			wantCode: codes.OK,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := client.UpdatePolicy(ctx, &pb.UpdatePolicyRequest{Policy: tc.policy})
+			st, _ := status.FromError(err)
+			if st.Code() != tc.wantCode {
+				t.Errorf("Want code %v, got %v (err: %v)", tc.wantCode, st.Code(), err)
+			}
+		})
+	}
+}

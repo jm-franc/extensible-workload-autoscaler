@@ -69,7 +69,7 @@ func (s *Server) GetControlMetrics(ctx context.Context, req *pb.GetControlMetric
 	if err := validateGetControlMetricsRequest(req); err != nil {
 		return nil, err
 	}
-	metrics, ok := s.store.GetControlMetrics(req.Id)
+	metrics, ok := s.store.GetControlMetrics(req.Id, req.GetRecommenderName())
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "policy not found")
 	}

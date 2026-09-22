@@ -113,6 +113,19 @@ message Policy {
   
   // The label selector used to identify pods (e.g. "app=my-app").
   string selector = 9;
+  
+  // Definitions of the metrics owned by individual recommenders, keyed by
+  // recommender name.
+  //
+  // Metric names only need to be unique within their owner. The
+  // `recommender_name` field in the metric definition must match.
+  map<string, MetricDefinitionList> recommender_metrics = 10;
+}
+
+// MetricDefinitionList is a list of metric definitions.
+message MetricDefinitionList {
+  // The metric definitions.
+  repeated MetricDefinition definitions = 1;
 }
 
 // WorkloadRef identifies the Kubernetes resource to scale.
@@ -133,6 +146,9 @@ message WorkloadRef {
 message MetricDefinition {
   // The name of the metric (used as key in ControlMetrics).
   string name = 1;
+  // The name of the recommender that owns this metric. Empty for policy-wide metrics.
+  // The metric name is only unique within its recommender.
+  string recommender_name = 15;
   // The provider class to use (e.g., "kubelet", "prometheus").
   string provider = 2;
   // Provider-specific parameters (e.g., "type": "cpu").
@@ -237,6 +253,12 @@ message ContainerState {
 message GetControlMetricsRequest { 
   // The policy to fetch metrics for.
   PolicyId id = 1; 
+
+  // Returns only the metrics owned by the specified recommender, as defined in
+  // Policy.recommender_metrics. If omitted, returns only the policy-wide
+  // metrics, i.e. those not owned by a specific recommender.
+  // Workload-level information (ready replicas, timestamp) is always reported.
+  string recommender_name = 2;
 }
 
 // A set of control metric values.
@@ -423,6 +445,8 @@ message MetricBatch {
 message MetricSample {
   // The name of the metric.
   string name = 1;
+  // The metric owning recommender (if any).
+  string recommender_name = 9;
   // Labels associated with the sample.
   map<string, string> labels = 2;
   // For resource metrics (e.g. "cpu" or "memory"), the resource name.
