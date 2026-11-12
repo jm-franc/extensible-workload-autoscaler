@@ -60,7 +60,7 @@ The system architecture follows a Hub-and-Spoke model:
 
 ## Deployment & Usage
 
-See [Read-me file](README.md).
+See the [README file](README.md).
 
 ## Configuration (CRDs)
 
