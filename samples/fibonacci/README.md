@@ -12,8 +12,8 @@ generator (`load-generator`) to evaluate Kubernetes **Horizontal Pod Autoscaler
     limits.
 *   **`load-generator` ([load-generator/app.py](load-generator/app.py)):** Runs
     a 30-minute load cycle against `http://fibonacci`, classifies request
-    latencies against `BASELINE_LATENCY` (`pass` <= 2x, `slow` 2x–5x, `failed`
-    > 5x timeout or error), and exposes Prometheus metrics
+    latencies against `BASELINE_LATENCY` (`pass` <= 2x, `slow` 2x–5x,
+    `failed` > 5x timeout or error), and exposes Prometheus metrics
     (`loadgen_queries_total` and `loadgen_target_qps`) on port `8080` (Service
     port `80`):
     *   **Phase 1 (15 mins):** Ramps up over 10 seconds to 25 QPS and sustains
@@ -107,7 +107,7 @@ score:
 make score
 ```
 
-### Monitor Scaling Behaviour
+### Monitor Scaling Behavior
 
 ```bash
 # Watch HPA scaling in fibonacci-hpa
