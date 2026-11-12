@@ -45,16 +45,16 @@ The xAS prototype has four main components:
     `ScalingPolicy` CRDs and for scaling target state (e.g., the number of ready
     Pods under the target). Syncs them to the Server.
 
-    Updates ScalingPolicy `status` field with updates from the xAS Server,
+    Updates the `ScalingPolicy` `status` field with updates from the xAS Server,
     and actuates scaling targets with the latest recommended number of replicas.
 
-3.  *Metric provider*: Either a custom provider implemented by a third-party, or
+3.  *Metric provider*: Either a custom provider implemented by a third party, or
     one of the core metric providers. Reads metrics and regularly pushes them to
     the Server.
 
-4.  *Recommender*: Either a custom recommender implemented by a third-party, or
+4.  *Recommender*: Either a custom recommender implemented by a third party, or
     one of the core recommenders. Responsible for reading scaling policies and
-    metrics, and pushing scaling recommendations, to the Server.
+    metrics, and pushing scaling recommendations to the Server.
 
     Recommenders open a gRPC stream to the Server to receive control metric
     updates as they happen, which preserves the requirement that recommenders

@@ -17,25 +17,25 @@ Every requirement is assigned a priority. *Mandatory* ones make up the core feat
 
 | Requirement | Priority | Description |
 | :--- | :--- | :--- |
-| Compatibility with HPA/VPA | Mandatory | xAS should support the existing HPA and VPA APIs with near-perfect fidelity, allowing to migrate to this stack. |
-| Cron recommender | High | Ensures recommenders can feed from something else than a metric provider. |
-| Allow to pick pods to evict on scale-down | High | This may require some non-trivial interactions with the scheduler or cluster autoscaler. |
+| Compatibility with HPA/VPA | Mandatory | xAS should support the existing HPA and VPA APIs with near-perfect fidelity, allowing users to migrate to this stack. |
+| Cron recommender | High | Ensures recommenders can feed from something other than a metric provider. |
+| Allow picking pods to evict on scale-down | High | This may require some non-trivial interactions with the scheduler or cluster autoscaler. |
 | Scale-to-zero | High | Full support, including (event-based) fast SFZ, buffering during STZ, selecting different metrics for STZ & SFZ. |
 | llm-d autoscaler | Medium | Emulate llm-d's autoscaler. |
-| Simple use-cases can be expressed using CEL expressions | Medium | CEL is a first-class citizen: metric aggregation or transformations, recommendations can be expressed in CEL. |
+| Simple use-cases can be expressed using CEL expressions | Medium | CEL is a first-class citizen: metric aggregation or transformations, and recommendations can be expressed in CEL. |
 | Utilization-based load-balancing (UBB) | Medium | Both standard and per-pod. See the [documentation][ubb]. |
-| Interface with various metrics sources and autoscalers | Medium | Integrate with various metric sources or existing autoscalers, e.g. Azure, Datadog,.... |
+| Interface with various metric sources and autoscalers | Medium | Integrate with various metric sources or existing autoscalers, e.g. Azure, Datadog. |
 | Cluster-proportional autoscaler & bootstrapping | Low | Vertical and horizontal autoscaling based on cluster size. See [cluster-proportional-vertical-autoscaler][cpva], [cluster-proportional-autoscaler][cpa] and [addon-resizer][addon-resizer]. This is typically useful for autoscaling core K8s components, e.g. Kube-DNS. This may require starting xAS in a simplified mode (to ensure it doesn't require a dependency that it's itself autoscaling). |
 | Pod-level resources | Medium | Support more recent Kubernetes features such as Pod-level resources and CPU boost. |
 | Event-based scaling | Low | Support events, e.g. fast scale-up following OOMs, or for SFZ (scaling from 0 to 1). |
-| Predictive autoscaling | Low | It should be possible to make use of a timeseries prediction models. |
+| Predictive autoscaling | Low | It should be possible to make use of timeseries prediction models. |
 
 ## Extensibility (custom metric providers & recommenders)
 
 | Requirement | Priority | Description |
 | :--- | :--- | :--- |
-| New recommenders and metric sources can be plugged in | Mandatory | The plugin API is non-ambiguous, well documented, and designed to evolve if needed. Metrics sources can be configured to talk to multiple recommenders, such as [autoscaling.googleapis.com][autoscaling-api] when on GCP. |
-| Plugins are easy to use | Medium | Using a plugin (understanding what parameters it takes, and finding its documentation, installing, removing) is easy and identical for all plugins. |
+| New recommenders and metric sources can be plugged in | Mandatory | The plugin API is non-ambiguous, well documented, and designed to evolve if needed. Metric sources can be configured to talk to multiple recommenders, such as [autoscaling.googleapis.com][autoscaling-api] when on GCP. |
+| Plugins are easy to use | Medium | Using a plugin (understanding what parameters it takes, finding its documentation, installing, and removing) is easy and identical for all plugins. |
 | Plugins are easy to implement | Low | There is a standard way to develop plugins, and in most cases the creation of new plugins can be delegated to AI. |
 
 ## Metrics & Aggregation
@@ -43,12 +43,12 @@ Every requirement is assigned a priority. *Mandatory* ones make up the core feat
 | Requirement | Priority | Description |
 | :--- | :--- | :--- |
 | Support all well-known metric types | Mandatory | E.g. Counters. Less-used types (e.g. summary) may not be supported. |
-| Raw metrics | Mandatory | Reading metrics emitted in real-time by pods (e.g. Kubelet, custom /metrics endpoints). |
+| Raw metrics | Mandatory | Reading metrics emitted in real time by pods (e.g. Kubelet, custom /metrics endpoints). |
 | Stored metrics | Mandatory | Use PromQL or similar queries to pull metrics from sources like Prometheus servers, or GCP Cloud Monitoring. |
 | Aggregations over long time windows | Mandatory | Aggregate over e.g. a week. This is a building block for Vertical scaling. |
 | External-raw metrics | Medium | This should support Inference Gateway Picker, and GPU and TPU metrics. |
-| Support OTel protocol | Medium | OTel being push-based, allowing for event-based autoscaling, e.g. fast Scale-from-zero. |
-| Metrics arithmetics | Medium | Simple algebraic expressions, divisions of 2 metrics. |
+| Support OTel protocol | Medium | OTel is push-based, allowing for event-based autoscaling, e.g. fast Scale-from-zero. |
+| Metric arithmetic | Medium | Simple algebraic expressions, divisions of 2 metrics. |
 | Simple aggregations | Medium | Rates, filtering across timeseries, ... |
 
 ## Horizontals
