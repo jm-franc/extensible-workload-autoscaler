@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sample-dynatrace
+  labels:
+    sample: dynatrace
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dynatrace-api-token
+  namespace: sample-dynatrace
+  labels:
+    sample: dynatrace
+type: Opaque
+stringData:
+  apiToken: "dt0c01.mock-sample-token"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dynatrace-consumer
+  namespace: sample-dynatrace
+  labels:
+    sample: dynatrace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dynatrace-consumer
+  template:
+    metadata:
+      labels:
+        app: dynatrace-consumer
+    spec:
+      containers:
+        - name: sample-app
+          image: xas-sample:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+---
+apiVersion: xas.io/v1
+kind: ScalingPolicy
+metadata:
+  name: dynatrace
+  namespace: sample-dynatrace
+  labels:
+    sample: dynatrace
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: dynatrace-consumer
+  minReplicas: 1
+  maxReplicas: 10
+
+  metrics:
+    - name: "request_rate"
+      provider: "dynatrace"
+      params:
+        apiUrl: "http://mock-dynatrace.mock-dynatrace.svc.cluster.local"
+        apiTokenSecretName: "dynatrace-api-token"
+        metricSelector: "ext:service.request_rate"
+        entitySelector: 'type("SERVICE"),tag("app:dynatrace-consumer")'
+      gauge:
+        aggregation: "Avg"
+
+  scaling:
+    - recommender: "linear"
+      name: "request_rate_target"
+      params:
+        metric: "request_rate"
+        target: "50.0" # Target 50 requests/sec per replica

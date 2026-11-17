@@ -9,6 +9,8 @@ The system architecture follows a Hub-and-Spoke model:
 *   **Server:** The central brain. Aggregates metrics, stores history in memory, and makes scaling decisions.
 *   **Controller (Actuator):** The Kubernetes Operator. Syncs `ScalingPolicy` CRDs to the Server and applies scaling recommendations to Deployments.
 *   **Core Node Metrics Provider (Agent):** Runs as a DaemonSet. Scrapes metrics from Pods (Prometheus) and Nodes (Kubelet) and pushes them to the Server.
+*   **Core Cluster Metrics Provider:** Runs as a Deployment. Queries Kubernetes External Metrics and Custom Metrics APIs and pushes them to the Server.
+*   **Dynatrace Metrics Provider:** Runs as a Deployment. Queries the Dynatrace Metrics API v2 (`GET /api/v2/metrics/query`) and pushes samples to the Server.
 *   **Core Recommenders (Engine):** Runs as a Deployment. Executes advanced scaling algorithms (like Linear Regression) and pushes recommendations to the Server.
 
 ## Key Technologies
@@ -72,8 +74,8 @@ Defines *what* to scale and *how*.
 
 ### MetricProviderClass
 Defines a reusable source of metrics.
-*   **`type`**: `Kubelet`, `Prometheus`.
-*   **`config`**: Provider-specific settings (e.g., port, path).
+*   **`type`**: `Kubelet`, `Prometheus`, `ExternalMetrics`, `CustomMetrics`, `Dynatrace`.
+*   **`config`**: Provider-specific settings (e.g., port, path, API URL).
 
 ### RecommenderClass
 Defines a reusable scaling strategy.

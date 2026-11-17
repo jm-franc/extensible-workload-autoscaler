@@ -159,3 +159,87 @@ spec:
         metric: "qps"
         target: "10.0" # Scale to maintain 10 QPS per pod
 ```
+
+### Scale on Dynatrace Metrics
+
+The `Dynatrace` metric provider queries the
+[Dynatrace Metrics API v2](https://docs.dynatrace.com/docs/dynatrace-api/environment-api/metric-v2/get-data-points)
+(`GET /api/v2/metrics/query`) using an access token with the `metrics.read`
+scope.
+
+Configure the Dynatrace environment URL and API token `Secret` once on a
+`MetricProviderClass` (or override them per metric in `ScalingPolicy` `params`,
+where `apiTokenSecretName` is always read from the `ScalingPolicy`'s own
+namespace):
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dynatrace-token
+  namespace: xas-system
+type: Opaque
+stringData:
+  apiToken: "dt0c01.<your-token>"
+---
+apiVersion: xas.io/v1
+kind: MetricProviderClass
+metadata:
+  name: dynatrace
+spec:
+  type: Dynatrace
+  config:
+    apiUrl: "https://<your-environment-id>.live.dynatrace.com"
+    apiTokenSecretName: "dynatrace-token"
+    apiTokenSecretNamespace: "xas-system"
+```
+
+Supported configuration keys and metric `params`:
+
+-   `apiUrl`: Dynatrace SaaS (`https://<env>.live.dynatrace.com`) or ActiveGate
+    (`https://<activegate>:9999/e/<env>`) base URL.
+-   `apiTokenSecretName`, `apiTokenSecretKey` (default `apiToken`), and (on
+    `MetricProviderClass` only) `apiTokenSecretNamespace` (default `xas-system`).
+    Alternatively, set `DYNATRACE_API_TOKEN` on the provider Deployment.
+-   `insecureSkipVerify`: Set to `"true"` to skip TLS verification when
+    querying an in-cluster ActiveGate with a self-signed certificate.
+-   `metricSelector` (or `metric`): Required Dynatrace metric selector.
+-   `entitySelector`, `mzSelector`, `resolution`, `from` (default `now-5m`),
+    `to`: Optional Dynatrace query parameters.
+-   `metricType`: `"gauge"` (default) or `"counter"`.
+-   `podDimension` / `containerDimension`: Optional `dimensionMap` keys used to
+    attribute series to individual pods or containers (automatically defaulting
+    to `k8s.pod.name` and `k8s.container.name` when `scope` is `Pod`,
+    `PodContainer`, or `Container`).
+-   `resource`: Optional Kubernetes resource name (e.g. `cpu` or `memory`).
+
+```yaml
+apiVersion: xas.io/v1
+kind: ScalingPolicy
+metadata:
+  name: checkout-autoscaler
+  namespace: shop
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: checkout
+  minReplicas: 1
+  maxReplicas: 20
+
+  metrics:
+    - name: "service_rps"
+      provider: "dynatrace"
+      params:
+        metricSelector: "builtin:service.requestCount.total:splitBy():rate(1s)"
+        entitySelector: 'type("SERVICE"),tag("app:checkout")'
+      gauge:
+        aggregation: "Avg"
+
+  scaling:
+    - recommender: "linear"
+      name: "rps_target"
+      params:
+        metric: "service_rps"
+        target: "100.0" # Target 100 RPS per replica
+```
