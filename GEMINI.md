@@ -56,8 +56,6 @@ The system architecture follows a Hub-and-Spoke model:
     ```
     Runs formatting, vet, build, test, and codegen checks.
 
-### Local Deployment
-
 ## Deployment & Usage
 
 See [Read-me file](README.md).

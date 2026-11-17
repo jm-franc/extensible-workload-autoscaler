@@ -5,7 +5,7 @@
 ## What is xAS?
 
 > [!CAUTION]
-> This is a very early prototype, and is intended mainly to use a tool to investigate
+> This is a very early prototype, and is intended mainly as a tool to investigate
 > API ideas and high-level architectures. It is not intended for production use. We
 > are working with the sig-autoscaling community to begin work on a usable autoscaler
 > based on the ideas explored in this repo.
@@ -81,7 +81,7 @@ $ kubectl describe scalingpolicy kubelet-cpu -n sample-kubelet-cpu
 # Re-run `hack/deploy.sh` to re-deploy to your KinD cluster.
 ```
 
-To cleanup and delete the cluster, run `hack/delete-kind-cluster.sh`.
+To clean up and delete the cluster, run `hack/delete-kind-cluster.sh`.
 
 ## How Does xAS Work?
 
@@ -96,7 +96,7 @@ This project is licensed under the [Apache 2.0 License](LICENSE).
 
 Please check our [contribution guidelines](docs/contributing.md) to get started.
 While we welcome all types of contributions, note that this project is in its
-early stages, our current focus is on establishing the core architecture,
+early stages, and our current focus is on establishing the core architecture,
 identifying suitable use cases, and refining our API definitions.
 
 We follow
