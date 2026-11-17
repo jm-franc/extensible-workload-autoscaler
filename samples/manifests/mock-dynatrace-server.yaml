@@ -1,0 +1,99 @@
+# A mock Dynatrace Metrics API v2 server to test xAS with Dynatrace metrics.
+# Update the reported metric value with:
+# kubectl exec -n mock-dynatrace deploy/mock-dynatrace -- python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/set_value=400')"
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mock-dynatrace
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-dynatrace
+  namespace: mock-dynatrace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-dynatrace
+  template:
+    metadata:
+      labels:
+        app: mock-dynatrace
+    spec:
+      containers:
+        - name: mock-dynatrace
+          image: python:3.9-slim
+          command: ["python3", "-c"]
+          args:
+            - |
+              import http.server, json, time, urllib.parse
+
+              metric_value = 50.0
+
+              class Handler(http.server.BaseHTTPRequestHandler):
+                  def do_GET(self):
+                      global metric_value
+                      if self.path.startswith("/set_value="):
+                          metric_value = float(self.path.split("=", 1)[1])
+                          self.send_response(200)
+                          self.end_headers()
+                          self.wfile.write(f"Updated metric_value to {metric_value}\n".encode())
+                          return
+
+                      parsed = urllib.parse.urlparse(self.path)
+                      if parsed.path != "/api/v2/metrics/query":
+                          self.send_response(404)
+                          self.end_headers()
+                          return
+
+                      auth = self.headers.get("Authorization", "")
+                      if not auth.startswith("Api-Token "):
+                          self.send_response(401)
+                          self.send_header("Content-Type", "application/json")
+                          self.end_headers()
+                          self.wfile.write(json.dumps({"error": {"code": 401, "message": "Missing Api-Token"}}).encode())
+                          return
+
+                      qs = urllib.parse.parse_qs(parsed.query)
+                      metric_id = qs.get("metricSelector", ["ext:service.request_rate"])[0]
+                      now_ms = int(time.time() * 1000)
+                      res = {
+                          "totalCount": 1,
+                          "nextPageKey": None,
+                          "resolution": "1m",
+                          "result": [
+                              {
+                                  "metricId": metric_id,
+                                  "data": [
+                                      {
+                                          "dimensionMap": {
+                                              "service": "dynatrace-consumer",
+                                          },
+                                          "timestamps": [now_ms],
+                                          "values": [metric_value],
+                                      }
+                                  ],
+                              }
+                          ],
+                      }
+                      self.send_response(200)
+                      self.send_header("Content-Type", "application/json")
+                      self.end_headers()
+                      self.wfile.write(json.dumps(res).encode())
+
+              http.server.HTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-dynatrace
+  namespace: mock-dynatrace
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: mock-dynatrace

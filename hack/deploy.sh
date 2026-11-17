@@ -46,13 +46,14 @@ export KIND_CLUSTER_NAME="${CLUSTER_NAME}"
 "${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/manifests/xas-core-node-metrics-provider.yaml | kubectl --context="${KUBE_CONTEXT}" apply -f -
 "${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/manifests/xas-core-recommenders.yaml | kubectl --context="${KUBE_CONTEXT}" apply -f -
 "${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/manifests/xas-core-cluster-metrics-provider.yaml | kubectl --context="${KUBE_CONTEXT}" apply -f -
+"${ROOT}"/hack/run-tool.sh ko resolve -f "${ROOT}"/manifests/xas-dynatrace-metrics-provider.yaml | kubectl --context="${KUBE_CONTEXT}" apply -f -
 
 echo "=========================================================="
 echo "Restarting xAS workloads..."
 echo "=========================================================="
 
 # Force restart workloads to pick up the newly built images
-kubectl --context="${KUBE_CONTEXT}" rollout restart deployment -n xas-system xas-server xas-controller xas-core-recommenders xas-core-cluster-metrics-provider || true
+kubectl --context="${KUBE_CONTEXT}" rollout restart deployment -n xas-system xas-server xas-controller xas-core-recommenders xas-core-cluster-metrics-provider xas-dynatrace-metrics-provider || true
 kubectl --context="${KUBE_CONTEXT}" rollout restart daemonset -n xas-system xas-core-node-metrics-provider || true
 
 
